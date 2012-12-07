@@ -12,14 +12,19 @@ public class MainClass {
 	private static int FOUND_NOTIF_STATUS = 1;
 	private static int PARTIALFOUND_NOTIF_STATUS = 2;
 	
-	private static String URL_NOTIF = "\"http://127.0.0.1:8080/br/spring/notif\"";
+	//private static String URL_NOTIF = "'http://127.0.0.1:8080/br/spring/notif'";
+	// dummy in stage
+	private static String URL_NOTIF = "'http://64.151.122.73:12010/br/spring/wap'";
 	
 	private static Pattern headXML = Pattern.compile("<\\?xml\\s+version=\"1\\.0\"");
 	private static Pattern initXML = Pattern.compile("<\\s*subscription_request\\s+operation\\s*=\\s*\"notification\"\\s*>");
 	private static Pattern endXML = Pattern.compile("</\\s*subscription_request\\s*>");
-	private static Pattern UNSUBSCRIBE = Pattern.compile("UNSUBSCRIBE");
 	
-	private static void parselog(String filename) throws IOException {
+	//private static Pattern SUBSCRIBE_ACTION = Pattern.compile("action\\s*=\\\"SUBSCRIBE\\\"");
+	//private static Pattern UNSUBSCRIBE_ACTION = Pattern.compile("action\\s*=\\\"UNSUBSCRIBE\\\"");
+	
+	
+	private static void parselog(String filename, String logFilename, String actionName, String sleepTime) throws IOException {
 		FileReader fr;
 		BufferedReader br;
 		String line;
@@ -27,10 +32,14 @@ public class MainClass {
 		Matcher m;
 		int foundStatus;
 		StringBuilder sb;
+		Pattern patternAction;
 		
 		sb =  new StringBuilder(2048);
 		fr = new FileReader(filename);
 		br = new BufferedReader(fr);
+		
+		patternAction = Pattern.compile("action\\s*=\\\""+ actionName +"\\\"");
+
 		
 		// searching an xml
 		while( (line = br.readLine()) != null ) {
@@ -46,7 +55,7 @@ public class MainClass {
 				// clean and verify if it is a subscription_request operation="notification"
 				sb.setLength(0);
 				
-				if( (foundStatus = tryToReadSubscriptionRequestNotification_SUBSCRIBE(line2, br, sb)) != NOTFOUND_NOTIF_STATUS ) {
+				if( (foundStatus = tryToReadSubscriptionRequestNotificationByAction(line2, br, sb, patternAction)) != NOTFOUND_NOTIF_STATUS ) {
 					sb.insert(0, line);
 					sb.insert(line.length(), '\n');
 					// do something with the notification xml
@@ -54,10 +63,11 @@ public class MainClass {
 					
 					
 					System.out.println("# ------------------------------------------");
-					System.out.print("curl -m '");
+					System.out.print("curl --header 'Content-Type:application/xml' -d '");
 					System.out.print(sb.toString());
-					System.out.print("' " + URL_NOTIF);
-					System.out.println();
+					System.out.print("' " + URL_NOTIF + " >> " + logFilename);
+					
+					System.out.print("\n\nsleep " + sleepTime + "\n\n");
 					continue;
 					
 				} else {
@@ -77,10 +87,13 @@ public class MainClass {
 		
 	}
 	
-	private static int tryToReadSubscriptionRequestNotification_SUBSCRIBE(String line, BufferedReader br, StringBuilder sb) throws IOException {
+	private static int tryToReadSubscriptionRequestNotificationByAction(String line, BufferedReader br, StringBuilder sb, Pattern patternAction) throws IOException {
 		
 		String line2;
 		Matcher m;
+		boolean containsActionIndicator;
+		
+		containsActionIndicator = false;
 		
 		m = initXML.matcher(line);
 		
@@ -89,6 +102,8 @@ public class MainClass {
 			
 			// append and try to find the end of the xml
 			sb.append(line);
+			sb.append('\n');
+			
 			while( (line2=br.readLine()) != null ) {
 			
 				m = endXML.matcher(line2);
@@ -98,17 +113,18 @@ public class MainClass {
 					
 					sb.append(line2);
 					sb.append('\n');
-					return FOUND_NOTIF_STATUS;
+					
+					return ( (containsActionIndicator) ?  FOUND_NOTIF_STATUS : NOTFOUND_NOTIF_STATUS );
 					
 				} else {
 					// a common xml line
 					
-					// ask if it is UNSUBSCRIBE
-					m = UNSUBSCRIBE.matcher(line2);
+					// ask if contains desired action
+					m = patternAction.matcher(line2);
 					
 					if( m.find() ) {
-						// an unsubscribe notification
-						// TODO Do some logic to process in a different way
+						// a notification with the desired action
+						containsActionIndicator = true;
 					}
 					
 					sb.append(line2);
@@ -117,7 +133,7 @@ public class MainClass {
 				}
 			}
 			
-			return PARTIALFOUND_NOTIF_STATUS;
+			return ( (containsActionIndicator) ?  PARTIALFOUND_NOTIF_STATUS : NOTFOUND_NOTIF_STATUS );
 			
 			
 		} else {
@@ -130,9 +146,50 @@ public class MainClass {
 	 */
 	public static void main(String[] args) {
 		
+		String filename;
+		String actionName = "SUBSCRIBE";
+		String sleepTime = "5";
+		String logFilename;
+		
 		try {
-			System.out.println("filename: " + args[0]);
-			parselog(args[0]);
+			
+			
+			switch(args.length) {
+			 
+			
+			
+			default:
+				
+			case 3:
+				sleepTime = args[2];
+				
+			case 2:
+				actionName = args[1];
+				
+			case 1:
+				
+				filename = args[0];
+				break;
+				
+			case 0:
+				System.out.println("ParseLogSpringNotifResource <log_filename> [<action_name>] [<sleep_time>]");
+				return;
+			}
+			
+			
+			logFilename = actionName + "_" + filename.substring( filename.lastIndexOf('\\') + 1  ) + "_log.log";
+			
+			System.out.println("#!/bin/bash\n");
+			
+			System.out.println("# ====================================");
+			System.out.println("# - filename: " + filename);
+			System.out.println("# - logFilename: " + logFilename);
+			System.out.println("# - actionName: " + actionName);
+			System.out.println("# - sleepTime: " + sleepTime);
+			System.out.println();
+			
+			parselog(filename, logFilename, actionName, sleepTime);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
