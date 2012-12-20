@@ -1,0 +1,164 @@
+<?xml version="1.0"?>
+
+<project name="Wimax" default="build" basedir=".">
+
+	<property file="build.properties" />
+
+
+
+	<path id="wimax.class.path">
+
+		<pathelement path="${classpath}" />
+		<pathelement path="${java.class.path}/" />
+		<pathelement path="${wimax.bin.dir}" />
+
+		<fileset dir="${wimax.lib.dir}">
+			<include name="**/*.jar" />
+			<exclude name="**/junit*.jar" />
+			<exclude name="**/*test*.jar" />
+		</fileset>
+
+		<fileset dir="${lib}">
+			<include name="**/*.jar" />
+		</fileset>
+
+	</path>
+
+	<path id="wimax_parselog.class.path">
+
+		<pathelement path="${classpath}" />
+		<pathelement path="${java.class.path}/" />
+		<pathelement path="${wimax.bin.dir}" />
+		<pathelement path="${parselog.bin.dir}" />
+
+		<fileset dir="${wimax.lib.dir}">
+			<include name="**/*.jar" />
+			<exclude name="**/junit*.jar" />
+			<exclude name="**/*test*.jar" />
+		</fileset>
+
+		<fileset dir="${lib}">
+			<include name="**/*.jar" />
+		</fileset>
+
+		<pathelement location="${build.classes}" />
+
+	</path>
+
+	<target name="clean">
+		<delete dir="${build}" />
+	</target>
+
+	<target name="prepare">
+		<mkdir dir="${build}" />
+		<mkdir dir="${build.classes}" />
+		<mkdir dir="${build.lib}" />
+	</target>
+
+	<target name="copyjars" depends="prepare">
+		<copy todir="${build.lib}">
+			<fileset dir="${lib}" includes="**/*.jar" />
+		</copy>
+	</target>
+
+	<target name="compile" depends="copyjars">
+		<javac srcdir="${src}" destdir="${build.classes}" encoding="iso-8859-1" debug="true" source="1.6" target="1.6" includeantruntime="true">
+			<classpath refid="wimax_parselog.class.path" />
+		</javac>
+	</target>
+
+
+	<target name="jar" depends="compile">
+
+
+		<jar jarfile="${build}/${app.jar}" index="true" manifestencoding="UTF-8">
+			<fileset dir="${build.classes}" includes="**/*.class" />
+			<fileset dir="${build.classes}" includes="**/*.xml" />
+
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Main-Class" value="${mainclass}" />
+
+				<section name="common">
+					<attribute name="Specification-Title" value="Parselog" />
+					<attribute name="Specification-Version" value="${version}" />
+					<attribute name="Specification-Vendor" value="Wireless Idea" />
+					<attribute name="Implementation-Title" value="common" />
+					<attribute name="Implementation-Version" value="${version}" />
+					<attribute name="Implementation-Vendor" value="Wireless Idea" />
+				</section>
+				<section name="common/class1.class">
+					<attribute name="Sealed" value="false" />
+				</section>
+			</manifest>
+
+		</jar>
+	</target>
+
+	<target name="build" depends="jar">
+	</target>
+
+	<target name="run" depends="build">
+
+		<!-- parseGenerator -->
+
+		<echo message="Parse Generator" />
+		<java classname="${parseGenerator.mainclass}" fork="false">
+			<classpath refid="wimax_parselog.class.path" />
+			<arg value="${csvGenerator.filename1}" />
+		</java>
+
+
+		<!-- csvGenerator 1 subscribe -->
+		<echo message="CSV Generator" />
+		<echo message="file1: ${csvGenerator.filename1}" />
+		<java classname="${csvGenerator.mainclass}" fork="false">
+			<classpath refid="wimax_parselog.class.path" />
+
+			<arg value="${csvGenerator.filename1}" />
+			<arg value="${csvGenerator.beanfactory}" />
+			<arg value="${csvGenerator.all.csvfilename1}" />
+		</java>
+
+		<!-- csvGenerator 2 subscribe -->
+		<echo message="CSV Generator" />
+		<echo message="file2: ${csvGenerator.filename2}" />
+		<java classname="${csvGenerator.mainclass}" fork="false">
+			<classpath refid="wimax_parselog.class.path" />
+
+			<arg value="${csvGenerator.filename2}" />
+			<arg value="${csvGenerator.beanfactory}" />
+			<arg value="${csvGenerator.all.csvfilename2}" />
+		</java>
+
+		<!-- csvGenerator 3 subscribe -->
+		<echo message="CSV Generator" />
+		<echo message="file3: ${csvGenerator.filename3}" />
+		<java classname="${csvGenerator.mainclass}" fork="false">
+			<classpath refid="wimax_parselog.class.path" />
+
+			<arg value="${csvGenerator.filename3}" />
+			<arg value="${csvGenerator.beanfactory}" />
+			<arg value="${csvGenerator.all.csvfilename3}" />
+		</java>
+
+
+
+	</target>
+
+
+	<target name="archive" depends="clean">
+		<script language="javascript">
+			<![CDATA[
+			var ts = new Date();
+			var curr_date = ts.getDate();
+			var curr_month = ts.getMonth() + 1; //Months are zero based
+			var curr_year = ts.getFullYear();
+			project.setProperty("current.time", curr_year + "_" + curr_month + "_" + curr_date);
+		    ]]>
+		</script>
+		<echo>Timestamp : ${current.time}</echo>
+		<zip destfile="../ParseLogSpringNotifResource_${current.time}.zip" basedir="../ParseLogSpringNotifResource" update="true">
+		</zip>
+	</target>
+</project>
